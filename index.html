@@ -8,9 +8,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="DMA Requisições">
 <title>DMA · Requisições do Almoxarifado</title>
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -1341,7 +1338,7 @@ const DADOS = [
 {"codigo": "10040565", "item": "CONJ AUTOFECHAMENTO BALCAO REFRI. 19MM", "setor": "REFRIGERAÇÃO"},
 {"codigo": "10041425", "item": "RESISTENCIA CLIMATICA U 400MM 700W 220V", "setor": "REFRIGERAÇÃO"}
 ];
-const VERSAO = "versão 5 · Pedido de Compra + base 1.111";
+const VERSAO = "versão 9 · zera tudo ao gerar";
 
 /* cor por setor (paleta estável) */
 const PAL = ["#1B4297","#2e7d32","#c2410c","#6d28d9","#0e7490","#b91c1c","#a16207",
@@ -1421,7 +1418,7 @@ function validarCompra(){
 }
 function nomeCompra(ext){const p=dadosCompra();let n='PedidoCompra';if(p.req)n+='_'+p.req;if(p.loja)n+='_'+p.loja;return n.replace(/[^\w\-]+/g,'_')+'.'+ext;}
 
-$('btnXlsC').onclick=()=>{
+$('btnXlsC').onclick=async()=>{
   if(!validarCompra())return;
   const p=dadosCompra();
   const aoa=[['PEDIDO DE COMPRA'],[],['Nº do chamado',p.req],['Solicitante',p.sol],['Loja',p.loja],['Data',p.data],[],['#','Descrição da peça','Qtde']];
@@ -1431,10 +1428,10 @@ $('btnXlsC').onclick=()=>{
   ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:2}}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Pedido de Compra');
   const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
-  compartilhar(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),nomeCompra('xlsx'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  toast('Excel gerado');
+  const ok=await compartilhar(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),nomeCompra('xlsx'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  if(ok) limparCompra('Excel gerado · lista zerada');
 };
-$('btnPdfC').onclick=()=>{
+$('btnPdfC').onclick=async()=>{
   if(!validarCompra())return;
   const p=dadosCompra();
   const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
@@ -1456,8 +1453,8 @@ $('btnPdfC').onclick=()=>{
   doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text('Total de peças: '+p.linhas.length,14,fy);
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(150);
   doc.text('Gerado pelo app DMA Requisições — '+new Date().toLocaleString('pt-BR'),14,287);
-  compartilhar(doc.output('blob'),nomeCompra('pdf'),'application/pdf');
-  toast('PDF gerado');
+  const ok=await compartilhar(doc.output('blob'),nomeCompra('pdf'),'application/pdf');
+  if(ok) limparCompra('PDF gerado · lista zerada');
 };
 
 /* ===== CHIPS ===== */
@@ -1603,18 +1600,21 @@ function nomeArq(ext){
 async function compartilhar(blob,nome,tipo){
   const file=new File([blob],nome,{type:tipo});
   if(navigator.canShare && navigator.canShare({files:[file]})){
-    try{ await navigator.share({files:[file],title:'Requisição de almoxarifado',
-      text:'Requisição '+(dadosPedido().req||'')}); return; }catch(e){ if(e.name==='AbortError')return; }
+    try{ await navigator.share({files:[file],title:'DMA · Almoxarifado'}); return true; }
+    catch(e){ if(e.name==='AbortError') return false; }
   }
   // fallback: download
   const url=URL.createObjectURL(blob);const a=document.createElement('a');
   a.href=url;a.download=nome;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),4000);
   toast('Arquivo baixado — anexe no WhatsApp');
+  return true;
 }
+function limparPedido(msg){ carrinho.clear(); fReq.value=''; fSol.value=''; fLoja.value=''; salvar(); atualizaBadge(); renderPedido(); renderLista(); if(msg)toast(msg); }
+function limparCompra(msg){ linhasCompra=[]; while(linhasCompra.length<MIN_LINHAS) linhasCompra.push({desc:'',qtd:''}); cReq.value=''; cSol.value=''; cLoja.value=''; salvarCompra(); renderLinhas(); if(msg)toast(msg); }
 
 /* ===== EXCEL ===== */
-$('btnXls').onclick=()=>{
+$('btnXls').onclick=async()=>{
   if(!validar())return;
   const p=dadosPedido();
   const aoa=[
@@ -1635,13 +1635,13 @@ $('btnXls').onclick=()=>{
   ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:5}}];
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Requisição');
   const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
-  compartilhar(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
+  const ok=await compartilhar(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
     nomeArq('xlsx'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  toast('Excel gerado');
+  if(ok) limparPedido('Excel gerado · lista zerada');
 };
 
 /* ===== PDF ===== */
-$('btnPdf').onclick=()=>{
+$('btnPdf').onclick=async()=>{
   if(!validar())return;
   const p=dadosPedido();
   const {jsPDF}=window.jspdf;
@@ -1676,8 +1676,8 @@ $('btnPdf').onclick=()=>{
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(150);
   doc.text('Gerado pelo app DMA Requisições — '+new Date().toLocaleString('pt-BR'),14,287);
   const blob=doc.output('blob');
-  compartilhar(blob,nomeArq('pdf'),'application/pdf');
-  toast('PDF gerado');
+  const ok=await compartilhar(blob,nomeArq('pdf'),'application/pdf');
+  if(ok) limparPedido('PDF gerado · lista zerada');
 };
 
 /* ===== INIT ===== */
@@ -1687,11 +1687,6 @@ carregarCompra(); renderLinhas();
 renderChips(); renderLista(); atualizaBadge();
 $('verC').textContent='DMA Requisições · '+VERSAO;
 $('ver').textContent='DMA Requisições · '+VERSAO+' · '+DADOS.length+' itens';
-
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
-}
-
 </script>
 </body>
 </html>
