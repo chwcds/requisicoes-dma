@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0046)file:///C:/Users/Wagner/Downloads/index_1.html -->
+<!-- saved from url=(0046)file:///C:/Users/Wagner/Downloads/index_3.html -->
 <html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
@@ -6177,7 +6177,7 @@ input,select{font-family:inherit;font-size:16px}
   <div id="pedidoLista"></div>
   <div class="totbar" id="totbar"></div>
 
-  <div class="foot" id="ver">DMA Requisições · versão 8 · zera lista ao gerar · 1111 itens</div>
+  <div class="foot" id="ver">DMA Requisições · versão 9 · zera tudo ao gerar · 1111 itens</div>
 </section>
 
 <!-- ===== VIEW: PEDIDO DE COMPRA ===== -->
@@ -6236,7 +6236,7 @@ input,select{font-family:inherit;font-size:16px}
       <input class="lqtd" data-q="" type="number" min="1" inputmode="numeric" placeholder="Qtd" value="">
     </div></div></div>
   <div style="padding:0 14px"><button class="addline" id="btnAddLinha">+ Adicionar linha</button></div>
-  <div class="foot" id="verC">DMA Requisições · versão 8 · zera lista ao gerar</div>
+  <div class="foot" id="verC">DMA Requisições · versão 9 · zera tudo ao gerar</div>
 </section>
 
 <!-- ===== EXPORT BAR (pedido de compra) ===== -->
@@ -7373,7 +7373,7 @@ const DADOS = [
 {"codigo": "10040565", "item": "CONJ AUTOFECHAMENTO BALCAO REFRI. 19MM", "setor": "REFRIGERAÇÃO"},
 {"codigo": "10041425", "item": "RESISTENCIA CLIMATICA U 400MM 700W 220V", "setor": "REFRIGERAÇÃO"}
 ];
-const VERSAO = "versão 8 · zera lista ao gerar";
+const VERSAO = "versão 9 · zera tudo ao gerar";
 
 /* cor por setor (paleta estável) */
 const PAL = ["#1B4297","#2e7d32","#c2410c","#6d28d9","#0e7490","#b91c1c","#a16207",
@@ -7645,8 +7645,8 @@ async function compartilhar(blob,nome,tipo){
   toast('Arquivo baixado — anexe no WhatsApp');
   return true;
 }
-function limparPedido(msg){ carrinho.clear(); salvar(); atualizaBadge(); renderPedido(); renderLista(); if(msg)toast(msg); }
-function limparCompra(msg){ linhasCompra=[]; while(linhasCompra.length<MIN_LINHAS) linhasCompra.push({desc:'',qtd:''}); salvarCompra(); renderLinhas(); if(msg)toast(msg); }
+function limparPedido(msg){ carrinho.clear(); fReq.value=''; fSol.value=''; fLoja.value=''; salvar(); atualizaBadge(); renderPedido(); renderLista(); if(msg)toast(msg); }
+function limparCompra(msg){ linhasCompra=[]; while(linhasCompra.length<MIN_LINHAS) linhasCompra.push({desc:'',qtd:''}); cReq.value=''; cSol.value=''; cLoja.value=''; salvarCompra(); renderLinhas(); if(msg)toast(msg); }
 
 /* ===== EXCEL ===== */
 $('btnXls').onclick=async()=>{
