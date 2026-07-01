@@ -1341,7 +1341,7 @@ const DADOS = [
 {"codigo": "10040565", "item": "CONJ AUTOFECHAMENTO BALCAO REFRI. 19MM", "setor": "REFRIGERAÇÃO"},
 {"codigo": "10041425", "item": "RESISTENCIA CLIMATICA U 400MM 700W 220V", "setor": "REFRIGERAÇÃO"}
 ];
-const VERSAO = "versão 10 · com ícone";
+const VERSAO = "versão 11 · qtd inicia em 0, Excel robusto";
 
 /* cor por setor (paleta estável) */
 const PAL = ["#1B4297","#2e7d32","#c2410c","#6d28d9","#0e7490","#b91c1c","#a16207",
@@ -1423,19 +1423,24 @@ function nomeCompra(ext){const p=dadosCompra();let n='PedidoCompra';if(p.req)n+=
 
 $('btnXlsC').onclick=async()=>{
   if(!validarCompra())return;
-  const p=dadosCompra();
-  const aoa=[['PEDIDO DE COMPRA'],[],['Nº do chamado',p.req],['Solicitante',p.sol],['Loja',p.loja],['Data',p.data],[],['#','Descrição da peça','Qtde']];
-  p.linhas.forEach((l,i)=>aoa.push([i+1,l.desc,l.qtd]));
-  const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:5},{wch:54},{wch:8}];
-  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:2}}];
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Pedido de Compra');
-  const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
-  const ok=await compartilhar(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),nomeCompra('xlsx'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  if(ok) limparCompra('Excel gerado · lista zerada');
+  if(typeof XLSX==='undefined'){ toast('Excel não carregou — verifique a internet e tente de novo'); return; }
+  try{
+    const p=dadosCompra();
+    const aoa=[['PEDIDO DE COMPRA'],[],['Nº do chamado',p.req],['Solicitante',p.sol],['Loja',p.loja],['Data',p.data],[],['#','Descrição da peça','Qtde']];
+    p.linhas.forEach((l,i)=>aoa.push([i+1,l.desc,l.qtd]));
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:5},{wch:54},{wch:8}];
+    ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:2}}];
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Pedido de Compra');
+    const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+    const ok=await compartilhar(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),nomeCompra('xlsx'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    if(ok) limparCompra('Excel gerado · lista zerada');
+  }catch(err){ toast('Erro ao gerar Excel: '+(err.message||err)); }
 };
 $('btnPdfC').onclick=async()=>{
   if(!validarCompra())return;
+  if(!(window.jspdf&&window.jspdf.jsPDF)){ toast('PDF não carregou — verifique a internet e tente de novo'); return; }
+  try{
   const p=dadosCompra();
   const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
   const W=doc.internal.pageSize.getWidth();
@@ -1458,6 +1463,7 @@ $('btnPdfC').onclick=async()=>{
   doc.text('Gerado pelo app DMA Requisições — '+new Date().toLocaleString('pt-BR'),14,287);
   const ok=await compartilhar(doc.output('blob'),nomeCompra('pdf'),'application/pdf');
   if(ok) limparCompra('PDF gerado · lista zerada');
+  }catch(err){ toast('Erro ao gerar PDF: '+(err.message||err)); }
 };
 
 /* ===== CHIPS ===== */
@@ -1486,7 +1492,7 @@ function renderLista(){
   if(!res.length){ lista.innerHTML='<div class="empty">Nenhum item encontrado.<br>Tente outro termo ou setor.</div>'; return; }
   lista.innerHTML = res.slice(0,400).map(d=>{
     const inC=carrinho.get(d.codigo);
-    const qv=inC?inC.qtd:1, uv=inC?inC.un:"UN";
+    const qv=inC?inC.qtd:0, uv=inC?inC.un:"UN";
     return `<div class="card" data-cod="${d.codigo}">
       <div class="desc">${esc(d.item)}</div>
       <div class="meta">
@@ -1496,7 +1502,7 @@ function renderLista(){
       <div class="adder">
         <div class="stepper">
           <button data-a="minus">−</button>
-          <input type="number" min="1" value="${qv}" data-q inputmode="numeric">
+          <input type="number" min="0" value="${qv}" data-q inputmode="numeric">
           <button data-a="plus">+</button>
         </div>
         <select class="unitsel" data-u>${UNS.map(u=>`<option ${u===uv?'selected':''}>${u}</option>`).join('')}</select>
@@ -1514,15 +1520,15 @@ function ligarCards(){
   lista.querySelectorAll('.card').forEach(card=>{
     const cod=card.dataset.cod;
     const qi=card.querySelector('[data-q]'), us=card.querySelector('[data-u]');
-    card.querySelector('[data-a=minus]').onclick=()=>{qi.value=Math.max(1,(+qi.value||1)-1);sync();};
-    card.querySelector('[data-a=plus]').onclick=()=>{qi.value=(+qi.value||1)+1;sync();};
+    card.querySelector('[data-a=minus]').onclick=()=>{qi.value=Math.max(0,(+qi.value||0)-1);sync();};
+    card.querySelector('[data-a=plus]').onclick=()=>{qi.value=(+qi.value||0)+1;sync();};
     qi.oninput=sync; us.onchange=sync;
-    function sync(){ if(carrinho.has(cod)){const e=carrinho.get(cod);e.qtd=Math.max(1,+qi.value||1);e.un=us.value;salvar();atualizaBadge();} }
+    function sync(){ if(carrinho.has(cod)){const e=carrinho.get(cod);e.qtd=Math.max(0,+qi.value||0);e.un=us.value;salvar();atualizaBadge();} }
     card.querySelector('[data-add]').onclick=(ev)=>{
       const d=DADOS.find(x=>x.codigo===cod);
-      const q=Math.max(1,+qi.value||1), u=us.value;
+      const q=parseInt(qi.value)||0, u=us.value;
       if(carrinho.has(cod)){ carrinho.delete(cod); ev.target.textContent='Adicionar'; ev.target.classList.remove('in'); toast('Removido do pedido'); }
-      else { carrinho.set(cod,{codigo:cod,item:d.item,setor:d.setor,qtd:q,un:u}); ev.target.textContent='✓ Na lista'; ev.target.classList.add('in'); toast('Adicionado ('+q+' '+u+')'); }
+      else { if(q<1){ toast('Use o + para definir a quantidade'); return; } carrinho.set(cod,{codigo:cod,item:d.item,setor:d.setor,qtd:q,un:u}); ev.target.textContent='✓ Na lista'; ev.target.classList.add('in'); toast('Adicionado ('+q+' '+u+')'); }
       salvar(); atualizaBadge();
     };
   });
@@ -1619,33 +1625,38 @@ function limparCompra(msg){ linhasCompra=[]; while(linhasCompra.length<MIN_LINHA
 /* ===== EXCEL ===== */
 $('btnXls').onclick=async()=>{
   if(!validar())return;
-  const p=dadosPedido();
-  const aoa=[
-    ['REQUISIÇÃO DE ALMOXARIFADO'],
-    [],
-    ['Nº do chamado', p.req],
-    ['Solicitante', p.sol],
-    ['Loja', p.loja],
-    ['Data', p.data],
-    [],
-    ['#','Código','Descrição','Setor','Qtde','Un.']
-  ];
-  p.itens.forEach((e,i)=>aoa.push([i+1,e.codigo,e.item,e.setor,e.qtd,e.un]));
-  aoa.push([]);
-  aoa.push(['','','','Total de itens',p.itens.length,'']);
-  const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:5},{wch:12},{wch:48},{wch:18},{wch:7},{wch:6}];
-  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:5}}];
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Requisição');
-  const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
-  const ok=await compartilhar(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
-    nomeArq('xlsx'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  if(ok) limparPedido('Excel gerado · lista zerada');
+  if(typeof XLSX==='undefined'){ toast('Excel não carregou — verifique a internet e tente de novo'); return; }
+  try{
+    const p=dadosPedido();
+    const aoa=[
+      ['REQUISIÇÃO DE ALMOXARIFADO'],
+      [],
+      ['Nº do chamado', p.req],
+      ['Solicitante', p.sol],
+      ['Loja', p.loja],
+      ['Data', p.data],
+      [],
+      ['#','Código','Descrição','Setor','Qtde','Un.']
+    ];
+    p.itens.forEach((e,i)=>aoa.push([i+1,e.codigo,e.item,e.setor,e.qtd,e.un]));
+    aoa.push([]);
+    aoa.push(['','','','Total de itens',p.itens.length,'']);
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:5},{wch:12},{wch:48},{wch:18},{wch:7},{wch:6}];
+    ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:5}}];
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Requisição');
+    const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+    const ok=await compartilhar(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
+      nomeArq('xlsx'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    if(ok) limparPedido('Excel gerado · lista zerada');
+  }catch(err){ toast('Erro ao gerar Excel: '+(err.message||err)); }
 };
 
 /* ===== PDF ===== */
 $('btnPdf').onclick=async()=>{
   if(!validar())return;
+  if(!(window.jspdf&&window.jspdf.jsPDF)){ toast('PDF não carregou — verifique a internet e tente de novo'); return; }
+  try{
   const p=dadosPedido();
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({unit:'mm',format:'a4'});
@@ -1681,6 +1692,7 @@ $('btnPdf').onclick=async()=>{
   const blob=doc.output('blob');
   const ok=await compartilhar(blob,nomeArq('pdf'),'application/pdf');
   if(ok) limparPedido('PDF gerado · lista zerada');
+  }catch(err){ toast('Erro ao gerar PDF: '+(err.message||err)); }
 };
 
 /* ===== INIT ===== */
